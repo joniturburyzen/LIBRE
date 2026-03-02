@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland Guide</title>
+<!-- PWA -->
+<meta name="theme-color" content="#0f1a25">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Escocia">
+<link rel="apple-touch-icon" id="pwa-apple-icon">
+<link rel="manifest" id="pwa-manifest">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a2b3d; color: #fff; height: 100vh; overflow: hidden; touch-action: manipulation; }
@@ -231,9 +238,25 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:
 #bar-input::placeholder { color:#4a6a80; }
 #bar-send { background:#e87424; border:none; color:white; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:0.88rem; flex-shrink:0; }
 #bar-send:hover { background:#ff914d; }
+
+/* ── BOTÓN INSTALAR PWA ── */
+#install-btn {
+  position: fixed; top: 62px; left: 50%; transform: translateX(-50%);
+  background: #0f1a25; border: 1.5px solid #e87424; color: #e87424;
+  padding: 7px 18px; border-radius: 20px; cursor: pointer;
+  font-size: 0.75rem; font-weight: bold; z-index: 970;
+  box-shadow: 0 2px 12px rgba(232,116,36,0.3);
+  display: none; align-items: center; gap: 7px;
+  transition: background 0.2s, color 0.2s; white-space: nowrap;
+}
+#install-btn:hover { background: #e87424; color: white; }
+#install-btn.visible { display: flex; }
 </style>
 </head>
 <body>
+
+<!-- Botón instalar PWA (aparece solo si el navegador lo soporta) -->
+<button id="install-btn">📲 Instalar app</button>
 
 <!-- Loading overlay del mapa -->
 <div id="map-loading">
@@ -1209,6 +1232,81 @@ window.addEventListener('beforeunload', () => {
 });
 
 applyOutfit('food');
+
+// ══════════════════════════════════════════
+// ── PWA — instalación como icono ──
+// ══════════════════════════════════════════
+(function initPWA() {
+  // Icono: saltire escocés estilizado con los colores de la app
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">',
+    '<rect width="192" height="192" fill="#0f1a25" rx="36"/>',
+    '<line x1="8" y1="8" x2="184" y2="184" stroke="white" stroke-width="24" stroke-linecap="round"/>',
+    '<line x1="184" y1="8" x2="8" y2="184" stroke="white" stroke-width="24" stroke-linecap="round"/>',
+    '<circle cx="96" cy="96" r="36" fill="#e87424"/>',
+    '<text x="96" y="112" font-size="36" text-anchor="middle" fill="white" ',
+    'font-family="Arial,sans-serif" font-weight="bold">H</text>',
+    '</svg>'
+  ].join('');
+  const iconDataURI = 'data:image/svg+xml;base64,' + btoa(svg);
+
+  // Apple touch icon (iOS — "Añadir a pantalla de inicio")
+  document.getElementById('pwa-apple-icon').href = iconDataURI;
+
+  // Manifest dinámico via Blob (evita problemas de encoding en el atributo href)
+  const manifest = {
+    name: 'Scotland Guide — Hamish',
+    short_name: 'Escocia',
+    description: 'Tu guía escocés gruñón con IA, mapas y whisky',
+    start_url: './ezcociapastexreview.html',
+    scope: './',
+    display: 'standalone',
+    orientation: 'portrait',
+    background_color: '#0f1a25',
+    theme_color: '#e87424',
+    icons: [
+      { src: iconDataURI, sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
+      { src: iconDataURI, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
+    ]
+  };
+  const mBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  document.getElementById('pwa-manifest').href = URL.createObjectURL(mBlob);
+
+  // Service Worker (requerido por Chrome para mostrar el prompt de instalación)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
+    });
+  }
+
+  // Prompt de instalación (Chrome desktop + Android)
+  let deferredPrompt = null;
+  const installBtn = document.getElementById('install-btn');
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.classList.add('visible');
+    // Hamish anuncia la posibilidad de instalar
+    setTimeout(() => showBubble('Si queréis tenerme en el bolsillo, podéis instalarlo. Solo por esta vez.', 7000), 800);
+  });
+
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.classList.remove('visible');
+    if (outcome === 'accepted') {
+      showBubble('Bienvenido al escritorio. Intentad no avergonzarme.', 5000);
+    }
+  });
+
+  window.addEventListener('appinstalled', () => {
+    installBtn.classList.remove('visible');
+    deferredPrompt = null;
+  });
+})();
 </script>
 
 <script async defer src="https://maps.googleapis.com/maps/api/js?v=beta&key=AIzaSyCE0XidfuLtjrNgNenKnpqq6lq1F0CTYUs&libraries=places,geometry&callback=initMap"></script>
